@@ -1,5 +1,5 @@
 clc, clear variables
-addpath ../bf_function_libary/
+addpath ../../bf_function_libary/
 %%
 
 Ts = 125e-6;

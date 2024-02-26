@@ -1,4 +1,5 @@
 clc, clear variables
+addpath ../../bf_function_libary/
 %%
 
 linewidth = 1.2;
@@ -62,19 +63,28 @@ time = (0:(N - 1)).' * Ts;
 
 figure(2)
 subplot(311)
-plot(time, exc), grid on, ylabel('Exc')
+plot(time, exc), grid on, ylabel('exc')
 subplot(312)
-plot(time, sinarg, 'r'), grid on, ylabel('Sinarg (rad)')
+plot(time, sinarg, 'r'), grid on, ylabel('sinarg (rad)')
 subplot(313)
-plot(time, fchirp, 'color', [0, 0.5, 0]), grid on, ylabel('Chrip Frequency (Hz)')
+plot(time, fchirp, 'color', [0, 0.5, 0]), grid on, ylabel('fchirp (Hz)')
 set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
 
 chirp = chirpAmplitude * exc;
 chirp_filtered = filter(Bll, All, chirp);
 
 figure(3)
-plot(time, [chirp, chirp_filtered]), grid on
+ax(1) = subplot(311);
+plot(ax(1), fchirp, gradient(chirp_filtered, time), 'color', [0 0.5 0]), grid on
+ylabel('Derivative'), set(gca, 'xScale', 'log')
+ax(2) = subplot(312);
+plot(ax(2), fchirp, [chirp, chirp_filtered]), grid on
+set(gca, 'xScale', 'log')
 legend('Chirp', 'Chirp after LLC', 'location', 'best')
+ax(3) = subplot(313);
+plot(ax(3), fchirp, cumtrapz(time, chirp_filtered), 'color', [0 0.5 0]), grid on
+ylabel('Integral'), xlabel('Time (sec)'), set(gca, 'xScale', 'log')
+linkaxes(ax, 'x'); clear ax; xlim([chirpFrequencyStartHz, chirpFrequencyEndHz])
 set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
 
 

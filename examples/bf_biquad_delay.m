@@ -1,5 +1,5 @@
 clc, clear variables
-addpath ../bf_function_libary/
+addpath ../../bf_function_libary/
 %%
 
 Ts = 125e-6;
@@ -30,6 +30,6 @@ Gm = c2d(tf(w0^2, [1 2*D*w0 w0^2]), Ts, ...
 
 figure(2)
 subplot(121)
-grpdelay(Gm.num{1}, Gm.den{1}, [], 1/Ts), set(gca, 'XScale', 'log')
+grpdelay(Gm.num{1}, Gm.den{1}, freq, 1/Ts), set(gca, 'XScale', 'log')
 subplot(122)
-phasedelay(Gm.num{1}, Gm.den{1}, [], 1/Ts), set(gca, 'XScale', 'log')
+phasedelay(Gm.num{1}, Gm.den{1}, freq, 1/Ts), set(gca, 'XScale', 'log')

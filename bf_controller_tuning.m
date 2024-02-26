@@ -1,5 +1,6 @@
 clc, clear variables
-addpath ../../bf_function_libary/
+% addpath ../../bf_function_libary/
+addpath ../bf_function_libary/
 %%
 
 % [fList, pList] = matlab.codetools.requiredFilesAndProducts('bf_controller_tuning_backup.m')
@@ -14,10 +15,13 @@ addpath ../../bf_function_libary/
 % - create something like para.blackbox_high_resolution in blackbox, so
 %   that it can automatically be evaluated if it was a chirp excitaion
 % - check out "flightModeFlags" for sinarg evaluation
+% - figure out motor_magic_offset
+
+% startup('abs', 'Hz');
 
 
 % choose an axis: 1: roll, 2: pitch, 3: yaw
-ind_ax = 3;
+ind_ax = 1;
 
 
 % parameters
@@ -25,6 +29,7 @@ do_compensate_iterm   = false;
 do_show_dev_figures   = false;
 do_show_spec_figures  = true;
 do_show_motor_figures = false;
+do_show_motor_p_cntrl = false; % has only an effect if do_show_motor_figures = true
 
 do_insert_legends     = false;
 multp_fig_nr = ind_ax;
@@ -36,32 +41,25 @@ pos_bode = [0.1514, 0.5838-0.2, 0.7536, 0.3472+0.2; ... % this is a bit hacky
 
 
 % bodeoptions (whatever you like)
-opt = bodeoptions('cstprefs');
-% opt = bodeoptions;
-% opt.FreqUnits = 'Hz';
-% opt.MagUnits  = 'abs';
-% opt.MagScale  = 'log';
-% opt.PhaseWrapping = 'on';
-% opt.Grid = 'on';
+% opt = bodeoptions('cstprefs');
+opt = bodeoptions;
+opt.FreqUnits = 'Hz';
+opt.MagUnits  = 'abs';
+opt.MagScale  = 'log';
+opt.PhaseWrapping = 'on';
+opt.Grid = 'on';
 
 % define quad and build path to *.bbl.csv file
-flight_folder = '20231108';
+flight_folder = '20240225';
 
 quad = 'apex5';
-path = ['/03_', quad, '/01_blackbox_logs/', flight_folder, '/', flight_folder, '_', quad, '_00.bbl.csv'];
-% path = ['/03_', quad, '/01_blackbox_logs/', flight_folder, '/', flight_folder, '_', quad, '_01.bbl.csv'];
-
-% quad = 'apex5hd';
-% path = ['/04_', quad, '/01_blackbox_logs/', flight_folder, '/', flight_folder, '_', quad, '_00.bbl.csv'];
-
-% quad = 'flipmini';
-% path = ['/05_', quad, '/01_blackbox_logs/', flight_folder, '/', flight_folder, '_', quad, '_00.bbl.csv'];
-
-% quad = 'aosmini';
-% path = ['/01_', quad, '/01_blackbox_logs/', flight_folder, '/', flight_folder, '_', quad, '_00.bbl.csv'];
+% path = ['/03_', quad, '/01_blackbox_logs/', ...
+    % flight_folder, '/', flight_folder, '_', quad, '_00.bbl.csv'];
+path = [flight_folder, '\', flight_folder, '_', quad, '_00.bbl.csv'];
 
 
-file_path = ['../../../../00_quads', path];
+% file_path = ['../../../00_quads', path];
+file_path = path;
 
 
 % extract header information
@@ -188,13 +186,14 @@ if (do_show_spec_figures)
     window   = hann(Nest);
     Nres     = 100;
 
+    c_lim = [3e-2 3e0];
+
     for spectrogram_nr = 1:3
         [pxx, freq, throttle] = estimate_spectrogram(data(:,ind.gyroUnfilt(spectrogram_nr)), ...
                                                      data(:,ind.setpoint(4)) / 10.0, ...
                                                      window, Noverlap, Nest, Nres, Ts_log);
         spectrograms = sqrt(pxx); % power -> amplitude (dc needs to be scaled differently)
         
-
         figure(22)
         subplot(230 + spectrogram_nr)
         qmesh = pcolor(freq, throttle, spectrograms);
@@ -202,18 +201,17 @@ if (do_show_spec_figures)
         xlabel('Frequency (Hz)'), ylabel('Throttle (%)')
         % colorbar()
         colormap('jet')
-        set(gca, 'ColorScale','log')
-        clim([3e-2 3e0]);
+        set(gca, 'ColorScale', 'log')
+        clim(c_lim);
         ylim([0 100])
     end
 
     for spectrogram_nr = 1:3
-        [pxx, freq, throttle] = estimate_spectrogram(data(:,ind.axisSum(spectrogram_nr)), ...
+        [pxx, freq, throttle] = estimate_spectrogram(data(:,ind.gyroADC(spectrogram_nr)), ...
                                                      data(:,ind.setpoint(4)) / 10.0, ...
                                                      window, Noverlap, Nest, Nres, Ts_log);
         spectrograms = sqrt(pxx); % power -> amplitude (dc needs to be scaled differently)
         
-
         figure(22)
         subplot(230 + spectrogram_nr + 3)
         qmesh = pcolor(freq, throttle, spectrograms);
@@ -221,8 +219,8 @@ if (do_show_spec_figures)
         xlabel('Frequency (Hz)'), ylabel('Throttle (%)')
         % colorbar()
         colormap('jet')
-        set(gca, 'ColorScale','log')
-        clim([3e-2 3e0]);
+        set(gca, 'ColorScale', 'log')
+        clim(c_lim);
         ylim([0 100])
     end
 end
@@ -350,46 +348,83 @@ end
 %%
 
 if do_show_motor_figures
+    P_motor = 0.1;
 
-    P_motor = 30;
-
+    clear motors
     for motor_nr = 1:4
-    
         motor_str = num2str(motor_nr);
-        
+
+        motor_magic_offset = 2.4;
+
+        inp = data(:,ind.motor(motor_nr)) * 100 / 2000 - motor_magic_offset;
+        out = data(:,ind.eRPM(motor_nr)) * 200 / (para.motor_poles * 60);
+
         figure(300)
         subplot(220 + motor_nr)
-        hist3([data(:,ind.motor(motor_nr)), ...
-              data(:,ind.eRPM(motor_nr)) / para.motor_poles], ...
-              [100 100], ...
-              'FaceColor', 'interp', 'EdgeColor', 'interp', 'CDataMode', 'auto')
+        hist3([out, inp], [100 100], ...
+              'EdgeColor', 'interp', 'CDataMode', 'auto')
         title(['Motor ', motor_str])
-        ylabel('RPM (rps)'), xlabel('Motor'), set(gca, 'zscale', 'log')
-        colorbar
+        xlabel('RPS (Hz)'), ylabel('Motor (%)')
+        % colorbar
         colormap('jet')
-        set(gca,'ColorScale','log')
+        set(gca, 'ColorScale', 'log')
         view(2)
+        ylim([0 100])
+
+
+        % Nest     = round(0.2 / Ts_log);
+        % koverlap = 0.9;
+        % Noverlap = round(koverlap * Nest);
+        % window   = hann(Nest);
+        % Nres     = 100;
+        % 
+        % [pxx, freq, motor] = estimate_spectrogram(data(:,ind.gyroUnfilt(spectrogram_nr)), ...
+        %                                              inp, ...
+        %                                              window, Noverlap, Nest, Nres, Ts_log);
+        % spectrograms = sqrt(pxx); % power -> amplitude (dc needs to be scaled differently)
+        % 
+        % figure(310)
+        % subplot(220 + motor_nr)
+        % qmesh = pcolor(freq, motor, spectrograms);
+        % set(qmesh, 'EdgeColor', 'None', 'FaceColor', 'interp');
+        % title(['Motor ', motor_str])
+        % xlabel('Frequency (Hz)'), ylabel('Motor (%)')
+        % % colorbar()
+        % colormap('jet')
+        % set(gca, 'ColorScale', 'log')
+        % clim([3e-2 3e0]);
+        % ylim([0 100])
         
+
+        Nest     = round(2.5 / Ts_log);
+        koverlap = 0.9;
+        Noverlap = round(koverlap * Nest);
+        window   = hann(Nest);
+
         % Pm 
-        inp = apply_rotfiltfilt(Glp, data(:,ind.sinarg), data(:,ind.motor(motor_nr)) );
-        out = apply_rotfiltfilt(Glp, data(:,ind.sinarg), data(:,ind.eRPM(motor_nr) ) / para.motor_poles);
+        inp = apply_rotfiltfilt(Glp, data(:,ind.sinarg), inp);
+        out = apply_rotfiltfilt(Glp, data(:,ind.sinarg), out);
+        % out = apply_rotfiltfilt(Glp, data(:,ind.sinarg), data(:,ind.eRPM(motor_nr) ) / para.motor_poles);
         [M, C_M] = estimate_frequency_response(inp(ind_eval), out(ind_eval), window, Noverlap, Nest, Ts_log);
-        Lm  =        M*P_motor;
-        Sm  = 1.0 / (1.0 + Lm);
-        Tm  =            Lm*Sm;
-        SPm =             M*Sm;
-        SCm =       P_motor*Sm;
         motors.(['M_'  , motor_str]) = M;
         motors.(['C_M_', motor_str]) = C_M;
-        motors.(['S_'  , motor_str]) = Sm;
-        motors.(['T_'  , motor_str]) = Tm;
-        motors.(['SP_' , motor_str]) = SPm;
-        motors.(['SC_' , motor_str]) = SCm;
+
+        if (do_show_motor_p_cntrl)
+            Lm  =        M*P_motor; %#ok
+            Sm  = 1.0 / (1.0 + Lm);
+            Tm  =            Lm*Sm;
+            SPm =             M*Sm;
+            SCm =       P_motor*Sm;
+            motors.(['S_'  , motor_str]) = Sm;
+            motors.(['T_'  , motor_str]) = Tm;
+            motors.(['SP_' , motor_str]) = SPm;
+            motors.(['SC_' , motor_str]) = SCm;
+        end
     end
     
     figure(301)
     ax(1) = subplot('Position', pos_bode(1,:));
-    opt.YLim = {[1e-4 1e0], [-180 180]}; opt.MagScale = 'log';
+    opt.YLim = {[1e-2 1e2], [-180 180]}; opt.MagScale = 'log';
     bode(ax(1), motors.M_1, motors.M_2, motors.M_3, motors.M_4, omega_bode, opt), grid on
     title('Motor Pm')
     ax(2) = subplot('Position', pos_bode(2,:));
@@ -400,47 +435,48 @@ if do_show_motor_figures
     linkaxes(ax, 'x'), clear ax
     set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
     
+    if (do_show_motor_p_cntrl)
+        figure(302)
+        ax(1) = subplot(221);
+        opt.YLim = {[1e-3 1e1], [-180 180]};
+        opt.MagScale = 'log';
+        bode(ax(1), motors.T_1, motors.T_2, motors.T_3, motors.T_4, omega_bode, opt), title('Tracking T' )
+        ax(2) = subplot(222);
+        bode(ax(2), motors.S_1, motors.S_2, motors.S_3, motors.S_4, omega_bode, opt), title('Sensitivity S' )
+        ax(3) = subplot(223);
+        opt.YLim = {[1e-2 1e1], [-180 180]};
+        bode(ax(3), motors.SC_1, motors.SC_2, motors.SC_3, motors.SC_4, omega_bode, opt), title('Controller Effort SC')
+        ax(4) = subplot(224);
+        opt.YLim = {[1e-2 1e+1], [-180 180]};
+        bode(ax(4), motors.SP_1, motors.SP_2, motors.SP_3, motors.SP_4, omega_bode, opt), title('Compliance SP')
+        set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
     
-    figure(302)
-    ax(1) = subplot(221);
-    opt.YLim = {[1e-3 1e1], [-180 180]};
-    opt.MagScale = 'log';
-    bode(ax(1), motors.T_1, motors.T_2, motors.T_3, motors.T_4, omega_bode, opt), title('Tracking T' )
-    ax(2) = subplot(222);
-    bode(ax(2), motors.S_1, motors.S_2, motors.S_3, motors.S_4, omega_bode, opt), title('Sensitivity S' )
-    ax(3) = subplot(223);
-    opt.YLim = {[1e0 1e3], [-180 180]};
-    bode(ax(3), motors.SC_1, motors.SC_2, motors.SC_3, motors.SC_4, omega_bode, opt), title('Controller Effort SC')
-    ax(4) = subplot(224);
-    opt.YLim = {[1e-4 1e-1], [-180 180]};
-    bode(ax(4), motors.SP_1, motors.SP_2, motors.SP_3, motors.SP_4, omega_bode, opt), title('Compliance SP')
-    set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
-
-
-    % step responses
-    f_max = 300; % needs to be set according to the coherence, if inf then it has no effect
-    step_time = (0:Nest-1).'*Ts_log;
-    step_resp = [calculate_step_response_from_frd(motors.M_1, f_max), ...
-                 calculate_step_response_from_frd(motors.M_2, f_max), ...
-                 calculate_step_response_from_frd(motors.M_3, f_max), ...
-                 calculate_step_response_from_frd(motors.M_4, f_max), ...
-                 calculate_step_response_from_frd(motors.T_1, f_max), ...
-                 calculate_step_response_from_frd(motors.T_2, f_max), ...
-                 calculate_step_response_from_frd(motors.T_3, f_max), ...
-                 calculate_step_response_from_frd(motors.T_4, f_max)];
     
-    figure(303)
-    ax(1) = subplot(211);
-    plot(ax(1), step_time, step_resp(:,1:4)), grid on    
-    title('Motor'), ylabel('RPM (Hz)')
-    if do_insert_legends, legend('Motor 1', 'Motor 2', 'Motor 3', 'Motor 4', 'location', 'best'), end %#ok
-    ylim([0 0.1])
-    ax(2) = subplot(212);
-    plot(ax(2), step_time, step_resp(:,5:8)), grid on
-    title('Tracking T'), ylabel('RPM (Hz)')
-    ylim([0 1.0])
-    linkaxes(ax, 'x'), clear ax, xlim([0 0.5])
-    set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
+        % step responses
+        f_max = 300; % needs to be set according to the coherence, if inf then it has no effect
+        step_time = (0:Nest-1).'*Ts_log;
+        step_resp = [calculate_step_response_from_frd(motors.M_1, f_max), ...
+                     calculate_step_response_from_frd(motors.M_2, f_max), ...
+                     calculate_step_response_from_frd(motors.M_3, f_max), ...
+                     calculate_step_response_from_frd(motors.M_4, f_max), ...
+                     calculate_step_response_from_frd(motors.T_1, f_max), ...
+                     calculate_step_response_from_frd(motors.T_2, f_max), ...
+                     calculate_step_response_from_frd(motors.T_3, f_max), ...
+                     calculate_step_response_from_frd(motors.T_4, f_max)];
+        
+        figure(303)
+        ax(1) = subplot(211);
+        plot(ax(1), step_time, step_resp(:,1:4)), grid on    
+        title('Motor'), ylabel('RPS (Hz)')
+        if do_insert_legends, legend('Motor 1', 'Motor 2', 'Motor 3', 'Motor 4', 'location', 'best'), end %#ok
+        % ylim([0 0.1])
+        ax(2) = subplot(212);
+        plot(ax(2), step_time, step_resp(:,5:8)), grid on
+        title('Tracking T'), ylabel('RPM (Hz)')
+        % ylim([0 1.0])
+        linkaxes(ax, 'x'), clear ax, xlim([0 0.5])
+        set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
+    end
 end
 
 
@@ -509,180 +545,31 @@ switch quad
         para_new.gyro_lowpass_hz     = 0;       % frequency of gyro lpf 1
         para_new.gyro_soft_type      = 0;       % type of gyro lpf 1
         para_new.gyro_lowpass_dyn_hz = [0, 0];  % dyn gyro lpf overwrites gyro_lowpass_hz
-        para_new.gyro_lowpass2_hz    = 600;     % frequency of gyro lpf 2
+        para_new.gyro_lowpass2_hz    = 800;     % frequency of gyro lpf 2
         para_new.gyro_soft2_type     = 0;       % type of gyro lpf 2
         para_new.gyro_notch_hz       = [0, 0]; % frequency of gyro notch 1 and 2
         para_new.gyro_notch_cutoff   = get_fcut_from_D_and_fcenter([0.00, 0.00], para_new.gyro_notch_hz); % damping of gyro notch 1 and 2
         para_new.dterm_lpf_hz        = 0;       % frequency of dterm lpf 1
         para_new.dterm_filter_type   = 0;       % type of dterm lpf 1
         para_new.dterm_lpf_dyn_hz    = [0, 0];  % dyn dterm lpf overwrites dterm_lpf_hz
-        para_new.dterm_lpf2_hz       = 160;     % frequency of dterm lpf 2
+        para_new.dterm_lpf2_hz       = 120;     % frequency of dterm lpf 2
         para_new.dterm_filter2_type  = 3;       % type of dterm lpf 2
         para_new.dterm_notch_hz      = 240;     % frequency of dterm notch
         para_new.dterm_notch_cutoff  = get_fcut_from_D_and_fcenter(0.10, para_new.dterm_notch_hz); % damping of dterm notch
         para_new.yaw_lpf_hz          = 200;     % frequency of yaw lpf (pt1)
         switch ind_ax
-            case 1 % roll: [50, 75, 38, 38, 0]
-                P_new       = 55;
-                I_ratio_new = 75/75;
-                D_new       = 32+2;
-            case 2 % pitch: [62, 92, 46, 46, 0]
-                P_new       = 68;
-                I_ratio_new = 96/92;
-                D_new       = 39+2;
-            case 3 % yaw: [43, 85, 3, 3, 0]
-                P_new       = 43;
-                I_ratio_new = 85/85;
-                D_new       = 3;
-            otherwise
-        end
-        % % type: 0: PT1, 1: BIQUAD, 2: PT2, 3: PT3
-        % para_new.gyro_lpf            = 0;       % dono what this is
-        % para_new.gyro_lowpass_hz     = 0;       % frequency of gyro lpf 1
-        % para_new.gyro_soft_type      = 0;       % type of gyro lpf 1
-        % para_new.gyro_lowpass_dyn_hz = [0, 0];  % dyn gyro lpf overwrites gyro_lowpass_hz
-        % para_new.gyro_lowpass2_hz    = 600;     % frequency of gyro lpf 2
-        % para_new.gyro_soft2_type     = 0;       % type of gyro lpf 2
-        % para_new.gyro_notch_hz       = [0, 0]; % frequency of gyro notch 1 and 2
-        % para_new.gyro_notch_cutoff   = get_fcut_from_D_and_fcenter([0.00, 0.00], para_new.gyro_notch_hz); % damping of gyro notch 1 and 2
-        % para_new.dterm_lpf_hz        = 0;       % frequency of dterm lpf 1
-        % para_new.dterm_filter_type   = 0;       % type of dterm lpf 1
-        % para_new.dterm_lpf_dyn_hz    = [0, 0];  % dyn dterm lpf overwrites dterm_lpf_hz
-        % para_new.dterm_lpf2_hz       = 160;     % frequency of dterm lpf 2
-        % para_new.dterm_filter2_type  = 3;       % type of dterm lpf 2
-        % para_new.dterm_notch_hz      = 235;     % frequency of dterm notch
-        % para_new.dterm_notch_cutoff  = get_fcut_from_D_and_fcenter(0.10, para_new.dterm_notch_hz); % damping of dterm notch
-        % para_new.yaw_lpf_hz          = 200;     % frequency of yaw lpf (pt1)
-        % switch ind_ax
-        %     case 1 % roll: [40, 75, 13, 0, 0]
-        %         P_new       = 40;
-        %         I_ratio_new = 75/75;
-        %         D_new       = 13;
-        %     case 2 % pitch: [52, 92, 21, 0, 0]
-        %         P_new       = 52;
-        %         I_ratio_new = 92/92;
-        %         D_new       = 21;
-        %     case 3 % yaw: [33, 85, 0, 0, 0]
-        %         P_new       = 33;
-        %         I_ratio_new = 85/85;
-        %         D_new       = 0;
-        %     otherwise
-        % end
-     case 'apex5hd'
-        % type: 0: PT1, 1: BIQUAD, 2: PT2, 3: PT3
-        para_new.gyro_lpf            = 0;       % dono what this is
-        para_new.gyro_lowpass_hz     = 0;       % frequency of gyro lpf 1
-        para_new.gyro_soft_type      = 0;       % type of gyro lpf 1
-        para_new.gyro_lowpass_dyn_hz = [0, 0];  % dyn gyro lpf overwrites gyro_lowpass_hz
-        para_new.gyro_lowpass2_hz    = 600;     % frequency of gyro lpf 2
-        para_new.gyro_soft2_type     = 0;       % type of gyro lpf 2
-        para_new.gyro_notch_hz       = [0, 0]; % frequency of gyro notch 1 and 2
-        para_new.gyro_notch_cutoff   = get_fcut_from_D_and_fcenter([0.00, 0.00], para_new.gyro_notch_hz); % damping of gyro notch 1 and 2
-        para_new.dterm_lpf_hz        = 0;       % frequency of dterm lpf 1
-        para_new.dterm_filter_type   = 0;       % type of dterm lpf 1
-        para_new.dterm_lpf_dyn_hz    = [0, 0];  % dyn dterm lpf overwrites dterm_lpf_hz
-        para_new.dterm_lpf2_hz       = 160;     % frequency of dterm lpf 2
-        para_new.dterm_filter2_type  = 3;       % type of dterm lpf 2
-        para_new.dterm_notch_hz      = 235;     % frequency of dterm notch
-        para_new.dterm_notch_cutoff  = get_fcut_from_D_and_fcenter(0.10, para_new.dterm_notch_hz); % damping of dterm notch
-        para_new.yaw_lpf_hz          = 200;     % frequency of yaw lpf (pt1)
-        para_new.gyro_llc_freq_hz    = 100;     % frequency of gyro llc
-        para_new.gyro_llc_phase      = 0;       % phase of gyro llc
-        para_new.dterm_llc_freq_hz   = 100;     % frequency of dterm llc
-        para_new.dterm_llc_phase     = 0;       % phase of dterm llc
-        para_new.pterm_llc_freq_hz   = 100;     % frequency of pterm llc
-        para_new.pterm_llc_phase     = 0;       % phase of pterm llc
-        switch ind_ax
-            case 1 % roll: [50, 82, 35, 35, 0]
-                P_new       = 50;
-                I_ratio_new = 82/82;
-                D_new       = 35;
-            case 2 % pitch: [62, 88, 42, 42, 0]
-                P_new       = 62;
-                I_ratio_new = 88/88;
-                D_new       = 42;
-            case 3 % yaw: [32, 78, 0, 0, 0]
-                P_new       = 32;
-                I_ratio_new = 78/78;
-                D_new       = 0;
-            otherwise
-        end
-    case 'flipmini'
-        % type: 0: PT1, 1: BIQUAD, 2: PT2, 3: PT3
-        para_new.gyro_lpf            = 0;       % dono what this is
-        para_new.gyro_lowpass_hz     = 0;       % frequency of gyro lpf 1
-        para_new.gyro_soft_type      = 0;       % type of gyro lpf 1
-        para_new.gyro_lowpass_dyn_hz = [0, 0];  % dyn gyro lpf overwrites gyro_lowpass_hz
-        para_new.gyro_lowpass2_hz    = 600;     % frequency of gyro lpf 2
-        para_new.gyro_soft2_type     = 0;       % type of gyro lpf 2
-        para_new.gyro_notch_hz       = [0, 0]; % frequency of gyro notch 1 and 2
-        para_new.gyro_notch_cutoff   = get_fcut_from_D_and_fcenter([0.00, 0.00], para_new.gyro_notch_hz); % damping of gyro notch 1 and 2
-        para_new.dterm_lpf_hz        = 0;       % frequency of dterm lpf 1
-        para_new.dterm_filter_type   = 0;       % type of dterm lpf 1
-        para_new.dterm_lpf_dyn_hz    = [0, 0];  % dyn dterm lpf overwrites dterm_lpf_hz
-        para_new.dterm_lpf2_hz       = 160;     % frequency of dterm lpf 2
-        para_new.dterm_filter2_type  = 3;       % type of dterm lpf 2
-        para_new.dterm_notch_hz      = 0;     % frequency of dterm notch
-        para_new.dterm_notch_cutoff  = get_fcut_from_D_and_fcenter(0.00, para_new.dterm_notch_hz); % damping of dterm notch
-        para_new.yaw_lpf_hz          = 200;     % frequency of yaw lpf (pt1)
-        para_new.gyro_llc_freq_hz    = 100;     % frequency of gyro llc
-        para_new.gyro_llc_phase      = 0;       % phase of gyro llc
-        para_new.dterm_llc_freq_hz   = 100;     % frequency of dterm llc
-        para_new.dterm_llc_phase     = 0;       % phase of dterm llc
-        para_new.pterm_llc_freq_hz   = 100;     % frequency of pterm llc
-        para_new.pterm_llc_phase     = 0;       % phase of pterm llc
-        switch ind_ax
-            case 1 % roll: [46, 66, 32, 32, 0]
-                P_new       = 46;
-                I_ratio_new = 66/66;
-                D_new       = 32;
-            case 2 % pitch: [71, 105, 49, 49, 0]
-                P_new       = 71;
-                I_ratio_new = 105/105;
-                D_new       = 49;
-            case 3 % yaw: [30, 65, 0, 0, 0]
-                P_new       = 30;
-                I_ratio_new = 65/65;
-                D_new       = 0;
-            otherwise
-        end
-    case 'aosmini'
-        % type: 0: PT1, 1: BIQUAD, 2: PT2, 3: PT3
-        para_new.gyro_lpf            = 0;       % dono what this is
-        para_new.gyro_lowpass_hz     = 0;       % frequency of gyro lpf 1
-        para_new.gyro_soft_type      = 0;       % type of gyro lpf 1
-        para_new.gyro_lowpass_dyn_hz = [0, 0];  % dyn gyro lpf overwrites gyro_lowpass_hz
-        para_new.gyro_lowpass2_hz    = 600;     % frequency of gyro lpf 2
-        para_new.gyro_soft2_type     = 0;       % type of gyro lpf 2
-        para_new.gyro_notch_hz       = [0, 0]; % frequency of gyro notch 1 and 2
-        para_new.gyro_notch_cutoff   = get_fcut_from_D_and_fcenter([0.00, 0.00], para_new.gyro_notch_hz); % damping of gyro notch 1 and 2
-        para_new.dterm_lpf_hz        = 0;       % frequency of dterm lpf 1
-        para_new.dterm_filter_type   = 0;       % type of dterm lpf 1
-        para_new.dterm_lpf_dyn_hz    = [0, 0];  % dyn dterm lpf overwrites dterm_lpf_hz
-        para_new.dterm_lpf2_hz       = 160;     % frequency of dterm lpf 2
-        para_new.dterm_filter2_type  = 3;       % type of dterm lpf 2
-        para_new.dterm_notch_hz      = 0;     % frequency of dterm notch
-        para_new.dterm_notch_cutoff  = get_fcut_from_D_and_fcenter(0.00, para_new.dterm_notch_hz); % damping of dterm notch
-        para_new.yaw_lpf_hz          = 200;     % frequency of yaw lpf (pt1)
-        para_new.gyro_llc_freq_hz    = 100;     % frequency of gyro llc
-        para_new.gyro_llc_phase      = 0;       % phase of gyro llc
-        para_new.dterm_llc_freq_hz   = 100;     % frequency of dterm llc
-        para_new.dterm_llc_phase     = 0;       % phase of dterm llc
-        para_new.pterm_llc_freq_hz   = 100;     % frequency of pterm llc
-        para_new.pterm_llc_phase     = 0;       % phase of pterm llc
-        switch ind_ax
-            case 1 % roll: [39, 60, 27, 27, 0]
-                P_new       = 39;
-                I_ratio_new = 60/60;
+            case 1 % roll: [55, 84, 25, 25, 0]
+                P_new       = 52;
+                I_ratio_new = 84/84;
                 D_new       = 27;
-            case 2 % pitch: [56, 81, 40, 40, 0]
-                P_new       = 56;
-                I_ratio_new = 81/81;
-                D_new       = 40;
-            case 3 % yaw: [30, 44, 0, 0, 0]
-                P_new       = 30;
-                I_ratio_new = 44/44;
-                D_new       = 0;
+            case 2 % pitch: [60, 97, 29, 29, 0]
+                P_new       = 1.03*64;
+                I_ratio_new = 93/97;
+                D_new       = 1.02*32;
+            case 3 % yaw: [38, 90, 3, 3, 0]
+                P_new       = 38;
+                I_ratio_new = 90/90;
+                D_new       = 3;
             otherwise
         end
     otherwise
@@ -701,7 +588,7 @@ PID_new(4) = 0;
 fprintf('   used fI is: %0.2f Hz\n\n', fI);
 
 % new PID parameters
-fprintf('   new used PID parameters are:\n');
+fprintf('   new PID parameters are:\n');
 para_new.(pid_axis{ind_ax}) = round( PID_new ./ pid_scale);
 para_new.(pid_axis{ind_ax}) = [para_new.(pid_axis{ind_ax})(1:3), ...
                                para_new.(pid_axis{ind_ax})(3), ...
@@ -716,7 +603,7 @@ fprintf(['      ', pid_axis{ind_ax}, ':  %d, %d, %d\n'], ...
 % inform user about new parameters
 para_used_fieldnames_new = fieldnames(para_used_new);
 Npara_used_new = size(para_used_fieldnames_new, 1);
-fprintf('   new used parameters are:\n');
+fprintf('   new parameters are:\n');
 for i = 1:Npara_used_new
     fprintf(['      ', para_used_fieldnames_new{i},': %d\n'], ...
         eval(['round(', 'para_used_new.', para_used_fieldnames_new{i}, ');']));
@@ -765,13 +652,13 @@ set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
 
 % step responses
 f_max = para.dyn_notch_min_hz; % needs to be set according to the coherence, if inf then it has no effect
-Tmean = 0.1 * [-1, 1] + (Nest * Ts_log) / 2;
+T_mean = 0.2 * [-1, 1] + (Nest * Ts_log) / 2;
 step_time = (0:Nest-1).'*Ts_log;
 
 step_resp = [calculate_step_response_from_frd(CL_ana.T    , f_max), ...
              calculate_step_response_from_frd(CL_ana_new.T, f_max), ...
              calculate_step_response_from_frd(T           , f_max)];
-step_resp_mean = mean(step_resp(step_time > Tmean(1) & step_time < Tmean(2),:));
+step_resp_mean = mean(step_resp(step_time > T_mean(1) & step_time < T_mean(2),:));
 step_resp = step_resp ./ step_resp_mean;
 
 figure(expand_multiple_figure_nr(6, multp_fig_nr))
@@ -783,7 +670,7 @@ ylim([0 1.3])
 
 step_resp = [calculate_step_response_from_frd(CL_ana.SP    , f_max), ...
              calculate_step_response_from_frd(CL_ana_new.SP, f_max)];
-step_resp_mean = mean(step_resp(step_time > Tmean(1) & step_time < Tmean(2),:));
+step_resp_mean = mean(step_resp(step_time > T_mean(1) & step_time < T_mean(2),:));
 step_resp = step_resp - step_resp_mean;
 
 ax(2) = subplot(212);
@@ -835,3 +722,48 @@ set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
 
 toc
 % Elapsed time is 15.670831 seconds.
+
+%%
+
+% % amp = [para.chirp_amplitude_roll; ...
+% %        para.chirp_amplitude_pitch; ...
+% %        para.chirp_amplitude_yaw];
+% 
+% freq_ll = [para.chirp_lead_freq_hz, para.chirp_lag_freq_hz];
+% 
+% Gll = get_filter('leadlag1', ...
+%                  freq_ll, ...
+%                  Ts_log);
+% 
+% % amp_new = amp;
+% 
+% scaler = 1 + 1/3;
+% freq_ll_new(2) = scaler*freq_ll(2); % zero
+% freq_ll_new(1) = 2/3*scaler*freq_ll(1); % pole
+% 
+% freq_ll_new = round(freq_ll_new);
+% 
+% Gll_new = get_filter('leadlag1', ...
+%                      freq_ll_new, ...
+%                      Ts_log);
+% 
+% G = tf(Gll_new / Gll);
+% data_new = zeros(size(data(:,ind.motor)));
+% for motor_nr = 1:length(ind.motor)
+%     data_new(:,motor_nr) = filter(G.num{1}, G.den{1}, ...
+%         data(:,ind.motor(motor_nr)));
+% end
+% 
+% figure(10)
+% ax(1) = subplot(221);
+% plot(ax(1), time, data(:,ind.motor)), grid on, ylabel('Motor')
+% ax(2) = subplot(223);
+% plot(ax(2), time, data_new), grid on, ylabel('Motor')
+% linkaxes(ax, 'xy'), clear ax, xlim([0, time(end)]), ylim([0 2000])
+% set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
+% subplot(122)
+% bode(Gll, Gll_new, G), grid on
+% 
+% freq_ll
+% freq_ll_new
+
