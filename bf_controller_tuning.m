@@ -3,19 +3,17 @@ clc, clear variables
 addpath ../bf_function_libary/
 %%
 
-% [fList, pList] = matlab.codetools.requiredFilesAndProducts('bf_controller_tuning_backup.m')
+% [fList, pList] = matlab.codetools.requiredFilesAndProducts('bf_controller_tuning.m')
 % 165+49+49 = 263 CHF
 % 263*1.05  = 276 EUR
 
-% ToDo:
-% - axisSum contains feed-forward, this could to be considered in the
-%   algorithms
+% TODO:
 % - the iterm_relax parameter can be used to decide if we need to
 %   compensate it's effects
 % - create something like para.blackbox_high_resolution in blackbox, so
 %   that it can automatically be evaluated if it was a chirp excitaion
 % - check out "flightModeFlags" for sinarg evaluation
-% - figure out motor_magic_offset
+% - figure out motor_magic_offset <- can't remember atm
 
 % startup('abs', 'Hz');
 
