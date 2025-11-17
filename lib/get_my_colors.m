@@ -26,14 +26,14 @@ function a = get_my_colors(ind)
 %% Old color order
 
 a = [[0   0   255];...    % 1  blau
-     [0   127 0  ];...    % 2  grün
+     [0   127 0  ];...    % 2  grï¿½n
      [255 0   0  ];...    % 3  rot
      [0   191 191];...    % 4  cyan
      [191 0   191];...    % 5  magenta
      [204 204 0  ];...    % 6  gelb
      [64  64  64 ];...    % 7  schwarz
      [255 153 51 ];...    % 8  orange
-     [51  255 51 ];...    % 9  knallgrün
+     [51  255 51 ];...    % 9  knallgrï¿½n
      [150 150 150];...    % 10 grau
      [255 102 178];...    % 11 rosa
      [0   170 170];...    % 12 dunkel cyan
@@ -43,7 +43,7 @@ a = [[0   0   255];...    % 1  blau
 
     if (exist('ind', 'var') && ~isempty(ind))
         a = a(ind, :);
-    end  
+    end
 
 end
 

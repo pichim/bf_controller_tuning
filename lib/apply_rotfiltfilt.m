@@ -32,7 +32,7 @@ function xf = apply_rotfiltfilt(G, sinarg, x)
     [Nx, nx] = size(x);
     xf = zeros(Nx, nx);
     p = exp(1i * sinarg);
-    
+
     for i = 1:nx
         % Eliminate mean
         y = x(:,i) - mean(x(:,i));

@@ -62,9 +62,12 @@ function [Cpi, Cd, Gf, PID, para_used] = calculate_transfer_functions(para, ind_
                                                           para.gyro_lowpass_dyn_expo, ...
                                                           throttle_avg);
         para_used.gyro_lpf_throttle_avg = throttle_avg;
-        Gf = Gf * get_filter(filter_types{para.dterm_filter_type + 1}, ...
+        Gf = Gf * get_filter(filter_types{para.gyro_lowpass_dyn_hz + 1}, ...
                              para_used.gyro_lpf_hz_avg, ...
                              Ts);
+
+
+
     end
     % Gyro lowpass filter 2
     if para.gyro_lowpass2_hz > 0
@@ -100,7 +103,7 @@ function [Cpi, Cd, Gf, PID, para_used] = calculate_transfer_functions(para, ind_
                                  Ts);
         end
     end
-    
+
     % Gd: d/dt(yf) -> d/dt(yf)f: dterm filters
     Gd = ss(tf(1, 1, Ts));
     % filter_enumeration = {'pt1', 'biquad', 'pt2', 'pt3'};
@@ -153,7 +156,7 @@ function [Cpi, Cd, Gf, PID, para_used] = calculate_transfer_functions(para, ind_
                                  Ts);
         end
     end
-    
+
     % Gf_p: p-term filters
     Gf_p = ss(tf(1, 1, Ts));
     % Pterm llc
@@ -189,7 +192,7 @@ function [Cpi, Cd, Gf, PID, para_used] = calculate_transfer_functions(para, ind_
     end
     % Insert 0 for FF
     PID = para.(pid_axis{ind_ax}) .* [get_pid_scale(ind_ax), 0];
-    
+
 
     % Get controllers
     [Cpi, Cd] = calculate_controllers(PID, Gf_p, Ts);

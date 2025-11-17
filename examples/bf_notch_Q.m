@@ -4,8 +4,8 @@ addpath ../lib/
 
 Ts = 125e-6;
 
-f1 = 200; % cutoffFreq 
-f0 = 230; % centerFreq 
+f1 = 200; % cutoffFreq
+f0 = 230; % centerFreq
 
 % bf
 Q = f0 * f1 / (f0 * f0 - f1 * f1) % <- Q = f0 / (f2 - f1) ; f2 = f0^2 / f1

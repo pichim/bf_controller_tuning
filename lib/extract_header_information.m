@@ -43,7 +43,7 @@ function [para, Nheader, ind, ind_cntr] = extract_header_information(filePath) %
     Nheader = 0;
     do_read_para = false;
     while ischar(tline)
-    
+
         Nheader = Nheader + 1;
         % We start reading parameters at frameIntervalI
         if ~isempty(regexp(tline, 'frameIntervalI', 'once'))
@@ -71,11 +71,11 @@ function [para, Nheader, ind, ind_cntr] = extract_header_information(filePath) %
 
     idx = regexp(tline, ',');
     ind_cntr = 1;
-    
+
     % Handle first element, should be 'loopIteration'
     ind_name = tline(2:idx(1)-2); %#ok
     eval(['ind.(ind_name) = [', num2str(ind_cntr), '];']);
-    
+
     % Handle all elements between
     for i = 1:length(idx)
         ind_cntr = ind_cntr + 1;

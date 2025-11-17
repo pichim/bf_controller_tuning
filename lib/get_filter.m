@@ -41,7 +41,7 @@ function [G, B, A] = get_filter(filter_type, f_cut, Ts)
 %   - 'pt2'/'pt3' use orderCutoffCorrection so specified fc matches analog –3 dB target
 %   - 'phaseComp' uses a series-expansion prewarp approximation around the center frequency
 %   - get_notch_Q and get_filter recursion ('leadlag1'→'phaseComp') must be available on path
-    
+
     switch filter_type
         case 'pt1'
             % prewarp
@@ -114,7 +114,7 @@ function [G, B, A] = get_filter(filter_type, f_cut, Ts)
         otherwise
             warning(['filter_type not valid']);
     end
-    
+
     B = G.num{1};
     A = G.den{1};
     G = ss(G);

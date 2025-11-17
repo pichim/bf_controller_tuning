@@ -25,11 +25,11 @@ ind_ax = 1;
 
 % -------------------------------------------------------------------------
 
-% Eefine quad and path to *.bbl.csv file
-flight_folder = '20250907';
+% % Define quad and path to *.bbl.csv file
+% flight_folder = '20250907';
 
-quad = 'aosmini';
-log_name = '20250907_aosmini_00.bbl.csv';
+% quad = 'aosmini';
+% log_name = '20250907_aosmini_00.bbl.csv';
 
 % quad = 'apex5';
 % log_name = '20250907_apex5_00.bbl.csv';
@@ -39,16 +39,34 @@ log_name = '20250907_aosmini_00.bbl.csv';
 
 % -------------------------------------------------------------------------
 
-% % define quad and path to *.bbl.csv file
+% % Define quad and path to *.bbl.csv file
 % flight_folder = '20250908';
 
 % quad = 'flipmini';
 % log_name = '20250908_flipmini_00.bbl.csv';
 
+% -------------------------------------------------------------------------
+
+% % Define quad and path to *.bbl.csv file
+% flight_folder = '20250918';
+% 
+% quad = 'aosmini';
+% log_name = '20250918_aosmini_00.bbl.csv';
+
+% -------------------------------------------------------------------------
+
+% Define quad and path to *.bbl.csv file
+flight_folder = '20251104';
+
+quad = 'yurisdrone';
+log_name = 'LOG000.TXT.csv';
+
+% -------------------------------------------------------------------------
+
 file_path = fullfile(flight_folder, log_name);
 
 % Evaluation parameters
-do_compensate_iterm  = false;
+do_compensate_iterm  = true;
 do_show_spec_figures = true;
 do_insert_legends    = false;
 
@@ -192,7 +210,7 @@ if (do_show_spec_figures)
                                                      data(:,ind.setpoint(4)) / 10.0, ...
                                                      window, Noverlap, Nest, Nres, Ts_log);
         spectrograms = sqrt(pxx); % power -> amplitude (dc needs to be scaled differently)
-        
+
         figure(22)
         subplot(230 + spectrogram_nr)
         qmesh = pcolor(freq, throttle, spectrograms);
@@ -213,7 +231,7 @@ if (do_show_spec_figures)
                                                      data(:,ind.setpoint(4)) / 10.0, ...
                                                      window, Noverlap, Nest, Nres, Ts_log);
         spectrograms = sqrt(pxx); % power -> amplitude (dc needs to be scaled differently)
-        
+
         figure(22)
         subplot(230 + spectrogram_nr + 3)
         qmesh = pcolor(freq, throttle, spectrograms);
@@ -342,7 +360,7 @@ end
 % First create new parameters the same as the actual ones
 para_new = para;
 
-% You can use the following command to generate the text below for the 
+% You can use the following command to generate the text below for the
 % actual parameters
 % get_switch_case_text_from_para(para)
 
@@ -442,6 +460,38 @@ switch quad
                 P_new       = 35;
                 I_ratio_new = 70/70;
                 D_new       = 3;
+        end
+    case 'yurisdrone'
+        % type: 0: PT1, 1: BIQUAD, 2: PT2, 3: PT3
+        para_new.gyro_lpf            = 0;       % dono what this is
+        para_new.gyro_lowpass_hz     = 0;       % frequency of gyro lpf 1
+        para_new.gyro_soft_type      = 0;       % type of gyro lpf 1
+        para_new.gyro_lowpass_dyn_hz = [0, 0];  % dyn gyro lpf overwrites gyro_lowpass_hz
+        para_new.gyro_lowpass2_hz    = 800;     % frequency of gyro lpf 2
+        para_new.gyro_soft2_type     = 0;       % type of gyro lpf 2
+        para_new.gyro_notch_hz       = [0, 0]; % frequency of gyro notch 1 and 2
+        para_new.gyro_notch_cutoff   = get_fcut_from_D_and_fcenter([0.00, 0.00], para_new.gyro_notch_hz); % damping of gyro notch 1 and 2
+        para_new.dterm_lpf_hz        = 0;       % frequency of dterm lpf 1
+        para_new.dterm_filter_type   = 0;       % type of dterm lpf 1
+        para_new.dterm_lpf_dyn_hz    = [0, 150];  % dyn dterm lpf overwrites dterm_lpf_hz
+        para_new.dterm_lpf2_hz       = 100;     % frequency of dterm lpf 2
+        para_new.dterm_filter2_type  = 3;       % type of dterm lpf 2
+        para_new.dterm_notch_hz      = 0;     % frequency of dterm notch
+        para_new.dterm_notch_cutoff  = get_fcut_from_D_and_fcenter(0.00, para_new.dterm_notch_hz); % damping of dterm notch
+        para_new.yaw_lpf_hz          = 200;     % frequency of yaw lpf (pt1)
+        switch ind_ax
+            case 1 % roll: [45, 80, 30, 40]
+                P_new       = 45;
+                I_ratio_new = 80/80;
+                D_new       = 30;
+            case 2 % pitch: [47, 84, 34, 46]
+                P_new       = 47;
+                I_ratio_new = 84/84;
+                D_new       = 34;
+            case 3 % yaw: [45, 80, 0, 0]
+                P_new       = 45;
+                I_ratio_new = 80/80;
+                D_new       = 0;
         end
     otherwise
         warning(' no valid quad selected');

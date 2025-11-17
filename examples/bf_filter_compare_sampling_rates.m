@@ -74,16 +74,16 @@ semilogx(freq_n, group_delay_n * 1e3), hold off
 xlabel('Frequency (Hz)'), ylabel('Phase Delay (ms)'), title('Phase Delay')
 
 
-%% 
+%%
 
 % syms  Ts pi f_cut n
-% 
+%
 % simplify(1 - Ts*(2*pi*f_cut)/(1 + Ts*(2*pi*f_cut)))
 % % 1/(2*Ts*f_cut*pi + 1)
-% 
+%
 % syms p
 % simplify(solve(1/(2*Ts*f_cut*pi + 1) == p, f_cut))
 % % (1/p - 1)/(2*Ts*pi)
-% 
+%
 % simplify( (n * log(1/(2*Ts*f_cut*pi + 1))) / (log(1/(2*n*Ts*f_cut*pi + 1))) )
 % % (n*log(1/(2*Ts*f_cut*pi + 1)))/log(1/(2*Ts*f_cut*n*pi + 1))

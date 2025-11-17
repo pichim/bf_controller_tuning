@@ -3,7 +3,7 @@ function get_switch_case_text_from_para(para)
     PID = [para.rollPID; ...
            para.pitchPID; ...
            para.yawPID];
-       
+
     fprintf('        %% type: 0: PT1, 1: BIQUAD, 2: PT2, 3: PT3\n');
     fprintf('        para_new.gyro_lpf            = %d;       %% dono what this is\n',       para.gyro_lpf);
     fprintf('        para_new.gyro_lowpass_hz     = %d;       %% frequency of gyro lpf 1\n', para.gyro_lowpass_hz);
@@ -24,7 +24,7 @@ function get_switch_case_text_from_para(para)
     end
     fprintf('        para_new.gyro_notch_cutoff   = get_fcut_from_D_and_fcenter([%0.2f, %0.2f], para_new.gyro_notch_hz); %% damping of gyro notch 1 and 2\n', ...
                                                                                              [gyro_notch_damp_1, gyro_notch_damp_2]);
-    
+
     fprintf('        para_new.dterm_lpf_hz        = %d;       %% frequency of dterm lpf 1\n', para.dterm_lpf_hz);
     fprintf('        para_new.dterm_filter_type   = %d;       %% type of dterm lpf 1\n',      para.dterm_filter_type);
     fprintf('        para_new.dterm_lpf_dyn_hz    = [%d, %d];  %% dyn dterm lpf overwrites dterm_lpf_hz\n', ...
