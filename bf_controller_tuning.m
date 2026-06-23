@@ -55,13 +55,20 @@ ind_ax = 1;
 
 % -------------------------------------------------------------------------
 
-% Define quad and path to *.bbl.csv file
-flight_folder = '20251104';
-
-quad = 'yurisdrone';
-log_name = 'LOG000.TXT.csv';
+% % Define quad and path to *.bbl.csv file
+% flight_folder = '20251104';
+% 
+% quad = 'yurisdrone';
+% log_name = 'LOG000.TXT.csv';
 
 % -------------------------------------------------------------------------
+
+% Define quad and path to *.bbl.csv file
+flight_folder = '20260529';
+
+quad = 'apex5';
+log_name = '20260529_apex5_00.bbl.csv';
+% log_name = '20260529_apex5_01.bbl.csv';
 
 file_path = fullfile(flight_folder, log_name);
 
@@ -70,7 +77,7 @@ do_compensate_iterm  = true;
 do_show_spec_figures = true;
 do_insert_legends    = false;
 
-multp_fig_nr = ind_ax;
+multp_fig_nr = ind_ax+1;
 
 % Defines
 set(cstprefs.tbxprefs, 'MagnitudeUnits', 'abs');
@@ -322,7 +329,7 @@ end
 
 figure(expand_multiple_figure_nr(4, multp_fig_nr))
 ax(1) = subplot('Position', pos_bode(1,:));
-opt.YLim = {[1e-4 1e2], [-180 180]}; opt.MagScale = 'log';
+opt.YLim = {[1e-4 1e2]; [-180 180]}; opt.MagScale = 'log';
 bode(ax(1), P / Gf_ana, 'k', omega_bode, opt), title('Plant P')
 hold off, grid on
 ax(2) = subplot('Position', pos_bode(2,:));
@@ -333,7 +340,7 @@ set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
 
 % Compare analytical to estimated controllers
 figure(expand_multiple_figure_nr(5, multp_fig_nr))
-opt.YLim = {[1e-2 1e2], [-180 180]}; opt.MagScale = 'log';
+opt.YLim = {[1e-2 1e2]; [-180 180]}; opt.MagScale = 'log';
 bode(Cpi, Cd, Cpi_ana, Cd_ana, omega_bode, opt), title('Cpi, Cd')
 set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
 
@@ -398,6 +405,37 @@ switch quad
                 D_new       = 3;
         end
     case 'apex5'
+        % % type: 0: PT1, 1: BIQUAD, 2: PT2, 3: PT3
+        % para_new.gyro_lpf            = 0;       % dono what this is
+        % para_new.gyro_lowpass_hz     = 0;       % frequency of gyro lpf 1
+        % para_new.gyro_soft_type      = 0;       % type of gyro lpf 1
+        % para_new.gyro_lowpass_dyn_hz = [0, 0];  % dyn gyro lpf overwrites gyro_lowpass_hz
+        % para_new.gyro_lowpass2_hz    = 800;     % frequency of gyro lpf 2
+        % para_new.gyro_soft2_type     = 0;       % type of gyro lpf 2
+        % para_new.gyro_notch_hz       = [0, 520]; % frequency of gyro notch 1 and 2
+        % para_new.gyro_notch_cutoff   = get_fcut_from_D_and_fcenter([0.00, 0.15], para_new.gyro_notch_hz); % damping of gyro notch 1 and 2
+        % para_new.dterm_lpf_hz        = 0;       % frequency of dterm lpf 1
+        % para_new.dterm_filter_type   = 0;       % type of dterm lpf 1
+        % para_new.dterm_lpf_dyn_hz    = [0, 0];  % dyn dterm lpf overwrites dterm_lpf_hz
+        % para_new.dterm_lpf2_hz       = 130;     % frequency of dterm lpf 2
+        % para_new.dterm_filter2_type  = 3;       % type of dterm lpf 2
+        % para_new.dterm_notch_hz      = 235;     % frequency of dterm notch
+        % para_new.dterm_notch_cutoff  = get_fcut_from_D_and_fcenter(0.15, para_new.dterm_notch_hz); % damping of dterm notch
+        % para_new.yaw_lpf_hz          = 200;     % frequency of yaw lpf (pt1)
+        % switch ind_ax
+        %     case 1 % roll: [37, 79, 16, 0]
+        %         P_new       = 37;
+        %         I_ratio_new = 79/79;
+        %         D_new       = 16;
+        %     case 2 % pitch: [51, 103, 24, 0]
+        %         P_new       = 51;
+        %         I_ratio_new = 103/103;
+        %         D_new       = 24;
+        %     case 3 % yaw: [28, 84, 0, 0]
+        %         P_new       = 28;
+        %         I_ratio_new = 84/84;
+        %         D_new       = 0;
+        % end
         % type: 0: PT1, 1: BIQUAD, 2: PT2, 3: PT3
         para_new.gyro_lpf            = 0;       % dono what this is
         para_new.gyro_lowpass_hz     = 0;       % frequency of gyro lpf 1
@@ -416,18 +454,18 @@ switch quad
         para_new.dterm_notch_cutoff  = get_fcut_from_D_and_fcenter(0.15, para_new.dterm_notch_hz); % damping of dterm notch
         para_new.yaw_lpf_hz          = 200;     % frequency of yaw lpf (pt1)
         switch ind_ax
-            case 1 % roll: [49, 83, 33, 0]
-                P_new       = 49;
-                I_ratio_new = 83/83;
-                D_new       = 33;
+            case 1 % roll: [47, 79, 31, 0]
+                P_new       = 47;
+                I_ratio_new = 79/79;
+                D_new       = 31;
             case 2 % pitch: [61, 103, 39, 0]
                 P_new       = 61;
                 I_ratio_new = 103/103;
                 D_new       = 39;
-            case 3 % yaw: [42, 104, 3, 0]
-                P_new       = 42;
-                I_ratio_new = 104/104;
-                D_new       = 3;
+            case 3 % yaw: [38, 84, 0, 0]
+                P_new       = 38;
+                I_ratio_new = 84/84;
+                D_new       = 0;
         end
     case 'flipmini'
         % type: 0: PT1, 1: BIQUAD, 2: PT2, 3: PT3
@@ -552,16 +590,16 @@ end
 % Closed-loop bode plots (gang of four)
 figure(expand_multiple_figure_nr(6, multp_fig_nr))
 ax(1) = subplot(221);
-opt.YLim = {[1e-3 1e1], [-180 180]}; opt.MagScale = 'log';
+opt.YLim = {[1e-3 1e1]; [-180 180]}; opt.MagScale = 'log';
 bodemag(ax(1), CL_ana.T , CL_ana_new.T , T, omega_bode, opt), title('Tracking T')
 if do_insert_legends, legend('actual', 'new', 'location', 'best'), end
 ax(2) = subplot(222);
 bodemag(ax(2), CL_ana.S , CL_ana_new.S , omega_bode, opt), title('Sensitivity S')
 ax(3) = subplot(223);
-opt.YLim = {[1e-2 1e2], [-180 180]};
+opt.YLim = {[1e-2 1e2]; [-180 180]};
 bodemag(ax(3), CL_ana.SC, CL_ana_new.SC, omega_bode, opt), title('Controller Effort SC')
 ax(4) = subplot(224);
-opt.YLim = {[1e-3 1e1], [-180 180]};
+opt.YLim = {[1e-3 1e1]; [-180 180]};
 bodemag(ax(4), CL_ana.SP, CL_ana_new.SP, omega_bode, opt), title('Compliance SP')
 linkaxes(ax, 'x'), clear ax
 set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
@@ -600,7 +638,7 @@ set(findall(gcf, 'type', 'line'), 'linewidth', linewidth)
 
 % Controllers
 figure(expand_multiple_figure_nr(8, multp_fig_nr))
-opt.YLim = {[1e-1 1e2], [-180 180]};
+opt.YLim = {[1e-1 1e2]; [-180 180]};
 bode(CL_ana.C, CL_ana_new.C, omega_bode, opt)
 title('Controller C')
 if do_insert_legends, legend('actual', 'new', 'location', 'best'), end
