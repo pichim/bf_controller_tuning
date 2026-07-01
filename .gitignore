@@ -1,1 +1,18 @@
+.env
+
+# Logs
+logs/*
+!logs/example_logs/
+!logs/example_logs/**
 *.csv
+
+# Backups
+backups/*
+
+# Matlab compiled files
+*.mat
+*.asv
+
+# Python compiled files
+*.pkl
+__pycache__/
